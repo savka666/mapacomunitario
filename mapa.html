@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa Comunitario</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="mapa.css">
+</head>
+<body>
+    <div class="title-container">
+        <h1>Mapa Comunitario</h1>
+        <!-- Botón flotante para abrir el menú emergente -->
+        <button id="floatingMenu">Menú</button>
+    </div>
+    
+    <!-- Menú emergente con opciones -->
+    <div id="menuContent">
+        <button id="addEventBtn">Agregar Evento</button>
+        <button id="addPOIBtn">Agregar Punto de Interés</button>
+        <button id="toggleListBtn">Ver Listado</button>
+    </div>
+
+    <!-- Contenedor dinámico de listas -->
+    <div id="listContainer" class="hidden">
+        <h3 id="listTitle"></h3>
+        <ul id="listItems"></ul>
+    </div>
+
+    <div id="map"></div>
+
+    <!-- Modal para agregar evento -->
+    <div id="eventModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>Agregar Evento</h3>
+            <form id="eventForm">
+                <input type="text" id="eventTitle" placeholder="Título del Evento" required><br>
+                <textarea id="eventDescription" placeholder="Descripción del evento" required></textarea><br>
+                <input type="url" id="eventImage" placeholder="URL de la Imagen" required><br>
+                <button type="submit">Agregar Evento</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal para agregar punto de interés -->
+    <div id="poiModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>Agregar Punto de Interés</h3>
+            <form id="poiForm">
+                <input type="text" id="poiTitle" placeholder="Título del Punto de Interés" required><br>
+                <textarea id="poiDescription" placeholder="Descripción del punto de interés" required></textarea><br>
+                <input type="url" id="poiImage" placeholder="URL de la Imagen" required><br>
+                <button type="submit">Agregar Punto de Interés</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Crear el mapa centrado en una ubicación inicial
+        var map = L.map('map').setView([-33.4020900, -70.7279300], 15);
+
+        // Agregar una capa base (OpenStreetMap)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        var events = [];
+        var pois = [];
+        var currentListType = null;
+
+        // Agregar marcador al mapa y al array correspondiente
+        function addMarkerToMap(array, title, description, imageUrl, lat, lng) {
+            var marker = L.marker([lat, lng]).addTo(map);
+            var popupContent = `<b>${title}</b><br>${description}<br><img src="${imageUrl}" alt="${title}" style="width:100%; max-height:200px; border-radius: 5px;">`;
+            marker.bindPopup(popupContent);
+            array.push({ title, description, imageUrl, lat, lng, marker });
+            if (currentListType === (array === events ? 'event' : 'poi')) {
+                updateList(); // Actualizar la lista solo si está activa
+            }
+        }
+
+        // Eliminar marcador del mapa y del array
+        function removeMarker(array, index) {
+            map.removeLayer(array[index].marker);
+            array.splice(index, 1);
+            if (currentListType === (array === events ? 'event' : 'poi')) {
+                updateList(); // Actualizar la lista solo si está activa
+            }
+        }
+
+        // Actualizar la lista en el contenedor dinámico
+        function updateList() {
+            var listItems = document.getElementById('listItems');
+            listItems.innerHTML = '';
+
+            var listData = currentListType === 'event' ? events : pois;
+
+            listData.forEach((item, index) => {
+                var listItem = document.createElement('li');
+                listItem.innerHTML = `${item.title} - <button onclick="removeMarker(${currentListType === 'event' ? 'events' : 'pois'}, ${index})">Eliminar</button>`;
+                listItems.appendChild(listItem);
+            });
+
+            document.getElementById('listTitle').innerText = currentListType === 'event' ? 'Eventos' : 'Puntos de Interés';
+        }
+
+        // Botón de menú flotante
+        document.getElementById('floatingMenu').onclick = function() {
+            var menu = document.getElementById('menuContent');
+            menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+        };
+
+        // Botón para alternar entre listas de eventos y puntos de interés
+        document.getElementById('toggleListBtn').onclick = function() {
+            var listContainer = document.getElementById('listContainer');
+            listContainer.classList.toggle('hidden');
+            if (!listContainer.classList.contains('hidden')) {
+                currentListType = currentListType === 'event' ? 'poi' : 'event';
+                updateList();
+            }
+        };
+
+        // Botones para abrir los modales
+        document.getElementById('addEventBtn').onclick = function() {
+            document.getElementById('eventModal').style.display = 'block';
+        };
+
+        document.getElementById('addPOIBtn').onclick = function() {
+            document.getElementById('poiModal').style.display = 'block';
+        };
+
+        // Formulario para agregar eventos
+        document.getElementById('eventForm').onsubmit = function(e) {
+            e.preventDefault();
+            var title = document.getElementById('eventTitle').value;
+            var description = document.getElementById('eventDescription').value;
+            var imageUrl = document.getElementById('eventImage').value;
+            addMarkerToMap(events, title, description, imageUrl, -33.4020900, -70.7279300);
+            document.getElementById('eventModal').style.display = 'none';
+        };
+
+        // Formulario para agregar puntos de interés
+        document.getElementById('poiForm').onsubmit = function(e) {
+            e.preventDefault();
+            var title = document.getElementById('poiTitle').value;
+            var description = document.getElementById('poiDescription').value;
+            var imageUrl = document.getElementById('poiImage').value;
+            addMarkerToMap(pois, title, description, imageUrl, -33.4020900, -70.7279300);
+            document.getElementById('poiModal').style.display = 'none';
+        };
+
+        // Cerrar modales
+        Array.from(document.getElementsByClassName('close')).forEach(closeBtn => {
+            closeBtn.onclick = function() {
+                document.getElementById('eventModal').style.display = 'none';
+                document.getElementById('poiModal').style.display = 'none';
+            };
+        });
+    </script>
+</body>
+</html>
